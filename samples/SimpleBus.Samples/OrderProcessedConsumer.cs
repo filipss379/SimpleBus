@@ -21,7 +21,7 @@ public class OrderProcessedConsumer : IConsumer<OrderProcessed>
     }
 }
 
-public class OrderProcessed : IMessage
+public class OrderProcessed
 {
     public Guid OrderId { get; set; }
     public DateTimeOffset ProcessedAt { get; set; }

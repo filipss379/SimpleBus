@@ -8,7 +8,7 @@ namespace SimpleBus
         
     }
 
-    public interface IConsumer<in T> : IConsumer where T : IMessage
+    public interface IConsumer<in T> : IConsumer where T : class
     {
         Task Handle(T message, CancellationToken cancellationToken);
     }

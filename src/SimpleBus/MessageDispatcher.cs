@@ -14,7 +14,7 @@ namespace SimpleBus
             _serviceProvider = serviceProvider;
         }
 
-        public async Task DispatchAsync(IMessage message, CancellationToken cancellationToken)
+        public async Task DispatchAsync(object message, CancellationToken cancellationToken)
         {
             using var scope = _serviceProvider.CreateScope();
             var messageType = message.GetType();

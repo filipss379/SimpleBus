@@ -17,7 +17,7 @@ namespace SimpleBus.InMemoryTransport
             _logger = logger;
         }
 
-        public async Task Publish<T>(T message) where T : IMessage
+        public async Task Publish<T>(T message) where T : class
         {
             _logger.LogTrace("Publishing message of type {MessageType}", typeof(T).Name);
             using var scope = _serviceProvider.CreateScope();

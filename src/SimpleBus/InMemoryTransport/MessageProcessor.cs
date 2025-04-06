@@ -49,7 +49,7 @@ namespace SimpleBus.InMemoryTransport
                 {
                     while ((bool) await (dynamic) waitToReadAsyncMethod.Invoke(reader, [stoppingToken]))
                     {
-                        var message = (IMessage) Activator.CreateInstance(reader.GetType().GetGenericArguments()[0]);
+                        var message = (object) Activator.CreateInstance(reader.GetType().GetGenericArguments()[0]);
                         var parameters = new[] { message };
                         while ((bool)tryReadMethod.Invoke(reader, parameters))
                         {
