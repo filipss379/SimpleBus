@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SimpleBus.Samples;
@@ -12,7 +13,7 @@ public class OrderProcessedConsumer : IConsumer<OrderProcessed>
         _messagesCounter = messagesCounter;
     }
 
-    public Task Handle(OrderProcessed message)
+    public Task Handle(OrderProcessed message, CancellationToken cancellationToken)
     {
         _messagesCounter.Increment();
         Console.WriteLine($"{_messagesCounter.GetCount()}. Order processed is being processed for {message.OrderId}.");

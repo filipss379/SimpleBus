@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SimpleBus.Samples;
@@ -12,7 +13,7 @@ public class OrderRequestedConsumer : IConsumer<OrderRequested>
         _messagesCounter = messagesCounter;
     }
 
-    public Task Handle(OrderRequested message)
+    public Task Handle(OrderRequested message, CancellationToken cancellationToken)
     {
         _messagesCounter.Increment();
         Console.WriteLine($"{_messagesCounter.GetCount()}. Order requested is being processed for {message.OrderId}.");
@@ -29,7 +30,7 @@ public class OrderRequestedConsumer2 : IConsumer<OrderRequested>
         _messagesCounter = messagesCounter;
     }
 
-    public Task Handle(OrderRequested message)
+    public Task Handle(OrderRequested message, CancellationToken cancellationToken)
     {
         _messagesCounter.Increment();
         Console.WriteLine($"{_messagesCounter.GetCount()}. Order requested is being processed for {message.OrderId}.");

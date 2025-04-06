@@ -27,7 +27,7 @@ namespace SimpleBus
                 var consumeMethod = consumerType.GetMethod("Handle");
                 if (consumeMethod != null)
                 {
-                    await (Task) consumeMethod.Invoke(consumer, [message]);
+                    await (Task) consumeMethod.Invoke(consumer, [message, cancellationToken]);
                 }
             }
         }
