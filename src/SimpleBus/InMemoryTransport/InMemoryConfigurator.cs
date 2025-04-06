@@ -12,12 +12,17 @@ namespace SimpleBus.InMemoryTransport
             _services = services;
         }
 
-        public void ReceiveEndpoint(string queueName, Action<ConfigurationContext> context)
+        public void ConfigureQueue(string queueName, Action<ConfigurationContext> context)
         {
             Console.WriteLine($"Registering receive endpoint for queue {queueName}");
 
             var configContext = new ConfigurationContext(_services, queueName);
             context.Invoke(configContext);
+        }
+
+        public void MapToQueue<T>(string orderRequested)
+        {
+            throw new NotImplementedException();
         }
     }
 }

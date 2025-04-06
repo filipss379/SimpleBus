@@ -55,7 +55,7 @@ namespace SimpleBus
 
     public interface ITransportConfigurator
     {
-        void ReceiveEndpoint(string queueName, Action<ConfigurationContext> context);
+        void ConfigureQueue(string queueName, Action<ConfigurationContext> context);
     }
 
     public class ConfigurationContext
@@ -73,6 +73,10 @@ namespace SimpleBus
         {
             // _services.AddSingleton<T>();
         }
-        
+
+        public void MapMessage<T>() where T : class
+        {
+            
+        }
     }
 } 

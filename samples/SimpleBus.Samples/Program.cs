@@ -12,10 +12,13 @@ builder.Services.AddSimpleBus(cfg =>
     
     cfg.UsingInMemoryTransport(configurator =>
     {
-        configurator.ReceiveEndpoint("order-requested", ctx =>
+        configurator.ConfigureQueue("handle-order", ctx =>
         {
             ctx.RegisterConsumer<OrderRequestedConsumer>();
+            ctx.MapMessage<HandleOrder>();
         });
+        
+        
     });
 });
 
