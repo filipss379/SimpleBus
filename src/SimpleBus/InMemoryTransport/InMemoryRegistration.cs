@@ -11,27 +11,30 @@ namespace SimpleBus.InMemoryTransport
         {
             var configurator = new InMemoryConfigurator(busConfigurator.Services);
             configure.Invoke(configurator);
-
-            var serviceProvider = busConfigurator.Services.BuildServiceProvider();
-            var consumersByMessageType = serviceProvider.GetRequiredService<RegisteredConsumersByMessageType>();
-            var messageTypes = consumersByMessageType.GetMessagesTypes();
             
-            foreach (var messageType in messageTypes)
+            busConfigurator.Services.AddSingleton<ChannelRegistry>(provider =>
             {
-                var channelType = typeof(Channel<>).MakeGenericType(messageType);
-                
-                var channelCreatorMethod = typeof(Channel)
-                    .GetMethods()
-                    .First(m => m.Name == nameof(Channel.CreateUnbounded) &&
-                                m.GetParameters().Length == 1 &&
-                                m.GetParameters()[0].ParameterType == typeof(UnboundedChannelOptions) &&
-                                m.IsGenericMethod)
-                    .MakeGenericMethod(messageType);
-                    
-                var channel = channelCreatorMethod.Invoke(null, new object[] { new UnboundedChannelOptions() });
-                busConfigurator.Services.AddSingleton(channelType, channel);
-            }
-            
+                var consumersByMessageType = provider.GetRequiredService<RegisteredConsumersByMessageType>();
+                var messageTypes = consumersByMessageType.GetMessagesTypes();
+                var registry = new ChannelRegistry();
+
+                foreach (var messageType in messageTypes)
+                {
+                    var channelCreatorMethod = typeof(Channel)
+                        .GetMethods()
+                        .First(m => m.Name == nameof(Channel.CreateUnbounded) &&
+                                    m.GetParameters().Length == 1 &&
+                                    m.GetParameters()[0].ParameterType == typeof(UnboundedChannelOptions) &&
+                                    m.IsGenericMethod)
+                        .MakeGenericMethod(messageType);
+
+                    var channel = channelCreatorMethod.Invoke(null, [new UnboundedChannelOptions()]);
+                    registry.AddChannel(messageType, channel);
+                }
+
+                return registry;
+            });
+
             busConfigurator.Services.AddSingleton<IBus, InMemoryBus>();
             busConfigurator.Services.AddHostedService<MessageProcessor>();
         }

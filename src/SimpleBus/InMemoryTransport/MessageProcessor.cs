@@ -1,67 +1,73 @@
 using System;
-using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SimpleBus;
+using SimpleBus.InMemoryTransport;
 
-namespace SimpleBus.InMemoryTransport
+public class MessageProcessor : BackgroundService
 {
-    public class MessageProcessor : BackgroundService
+    private readonly ChannelRegistry _channelRegistry;
+    private readonly MessageDispatcher _messageDispatcher;
+    private readonly ILogger<MessageProcessor> _logger;
+    private readonly RegisteredConsumersByMessageType _consumersByMessageType;
+
+    public MessageProcessor(
+        ChannelRegistry channelRegistry,
+        MessageDispatcher messageDispatcher,
+        ILogger<MessageProcessor> logger,
+        RegisteredConsumersByMessageType consumersByMessageType)
     {
-        private readonly IServiceProvider _serviceProvider;
-        private readonly MessageDispatcher _messageDispatcher;
-        private readonly ILogger<MessageProcessor> _logger;
-        private readonly List<Task> _workers = [];
-        
-        public MessageProcessor(IServiceProvider serviceProvider, MessageDispatcher messageDispatcher, ILogger<MessageProcessor> logger)
-        {
-            _serviceProvider = serviceProvider;
-            _messageDispatcher = messageDispatcher;
-            _logger = logger;
-        }
-        
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            var registeredConsumersByMessageTypes = 
-                _serviceProvider.GetRequiredService<RegisteredConsumersByMessageType>();
-            var messagesTypes = registeredConsumersByMessageTypes.GetMessagesTypes();
+        _channelRegistry = channelRegistry;
+        _messageDispatcher = messageDispatcher;
+        _logger = logger;
+        _consumersByMessageType = consumersByMessageType;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        var messageTypes = _consumersByMessageType.GetMessagesTypes();
+        var tasks = messageTypes.Select(type => ProcessMessagesOfTypeAsync(type, stoppingToken));
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task ProcessMessagesOfTypeAsync(Type messageType, CancellationToken stoppingToken)
+    {
+        var method = typeof(MessageProcessor)
+            .GetMethod(nameof(ProcessChannel), BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.MakeGenericMethod(messageType);
             
-            var channels = new List<object>();
-
-            foreach (var messageType in messagesTypes)
+        await (Task) method.Invoke(this, [stoppingToken]);
+    }
+    
+    private async Task ProcessChannel<T>(CancellationToken stoppingToken) where T : class
+    {
+        var channel = _channelRegistry.GetChannel<T>();
+        var reader = channel.Reader;
+        
+        try
+        {
+            while (await reader.WaitToReadAsync(stoppingToken))
             {
-                var channel = _serviceProvider.GetService(typeof(Channel<>).MakeGenericType(messageType));
-                channels.Add(channel);
-            }
-            
-            foreach (var channel in channels)
-            {
-                var readerProperty = channel.GetType().GetProperty("Reader");
-                var reader = readerProperty.GetValue(channel);
-
-                var waitToReadAsyncMethod = reader.GetType().GetMethod("WaitToReadAsync", [typeof(CancellationToken)]);
-                var tryReadMethod = reader.GetType().GetMethod("TryRead", new[] { reader.GetType().GetGenericArguments()[0].MakeByRefType() });
-
-                var task = Task.Run(async () =>
+                while (reader.TryRead(out var message))
                 {
-                    while ((bool) await (dynamic) waitToReadAsyncMethod.Invoke(reader, [stoppingToken]))
+                    try
                     {
-                        var message = (object) Activator.CreateInstance(reader.GetType().GetGenericArguments()[0]);
-                        var parameters = new[] { message };
-                        while ((bool)tryReadMethod.Invoke(reader, parameters))
-                        {
-                            await _messageDispatcher.DispatchAsync(parameters[0], stoppingToken);
-                        }
+                        await _messageDispatcher.DispatchAsync(message, stoppingToken);
                     }
-                }, stoppingToken);
-
-                _workers.Add(task);
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing message of type {MessageType}", typeof(T).Name);
+                    }
+                }
             }
-            
-            await Task.WhenAll(_workers);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Error in channel processor for {MessageType}", typeof(T).Name);
         }
     }
 }
